@@ -1,0 +1,16 @@
+{
+  "env": {
+    "node": true,
+    "browser": true
+  },
+  "parser": "babel-eslint",
+  ecmaFeatures: {
+    modules: true,
+  },
+  "plugins": [
+    "react"
+  ],
+  "rules": {
+      "semi": 2
+  }
+}
