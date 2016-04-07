@@ -9,8 +9,7 @@ export default class App extends React.Component {
     super(props);
 
     this.state = {
-      fileUrl: '',
-      fileName: '',
+      files: [],
     };
   }
 
@@ -27,20 +26,25 @@ export default class App extends React.Component {
     const urlCreator = window.URL || window.webkitURL;
     const fileUrl = urlCreator.createObjectURL(blob);
     this.setState({
-      fileUrl,
-      fileName: data.fileName,
-      fileSize: data.fileSize,
+      files: [
+        ...this.state.files, {
+        fileUrl,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        fileType: data.fileType,
+      },
+    ],
     });
   };
 
   onSubmit = (e) => {
     e.preventDefault();
-    let fileInput = this.refs.fileInput;
-    const fileName = fileInput.files[0].name;
-    const fileSize = fileInput.files[0].size;
-    const fileType = fileInput.files[0].type;
-    const p2psocket = this.p2psocket;
+    const fileInput = this.refs.fileInput;
     if (fileInput.value !== '') {
+      const fileName = fileInput.files[0].name;
+      const fileSize = fileInput.files[0].size;
+      const fileType = fileInput.files[0].type;
+      const p2psocket = this.p2psocket;
       let reader = new window.FileReader();
       reader.onload = function (evnt) {
         p2psocket.emit('peer-file', {
@@ -56,36 +60,36 @@ export default class App extends React.Component {
       };
 
       reader.readAsArrayBuffer(fileInput.files[0]);
-    }
 
-    fileInput.value = '';
+      fileInput.value = '';
+    }
   };
 
   render() {
+    const links = this.state.files.map((file, i) => (
+      <li key={i}>
+        <p><b>File Name:</b> {file.fileName}</p>
+        <p><b>File Size:</b> {Number((file.fileSize / 1024).toFixed(1))} KBs</p>
+        <p><b>File Type:</b> {file.fileType}</p>
+        <span>
+          <a target="_blank" href={file.fileUrl}>Open</a> | <a download href={file.fileUrl}>Download</a>
+        </span>
+        <hr />
+      </li>
+    ));
     return (
       <div className="container">
         <h1 className="title">Hello</h1>
         <form action="#" onSubmit={this.onSubmit}>
           <label>Select file to send</label>
           <input type="file" name="filename" ref="fileInput" size="40" />
-          <progress id="fileProgress" value="1" max="100"/>
+          <progress value="1" max="100"/>
           <br/>
           <input className="btn btn-default" type="submit" value="Submit" />
         </form>
-        {this.state.fileUrl ?
           <ul>
-            <li>
-              <a target="_blank" href={this.state.fileUrl}>
-                {this.state.fileName}
-              </a>
-              <br/>
-              <a download href={this.state.fileUrl}>
-                Download File Above
-              </a>
-            </li>
-          </ul> :
-          null
-        }
+            { links }
+          </ul>
       </div>
     );
   }
