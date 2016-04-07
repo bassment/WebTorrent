@@ -28,7 +28,6 @@ console.log('Listening on port', port);
 
 io.on('connection', function (socket) {
   socket.on('peer-file', function (data) {
-    console.log('File from peer: %s', data.fileName);
     socket.broadcast.emit('peer-file', data);
   });
 });
