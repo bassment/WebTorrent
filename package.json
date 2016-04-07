@@ -17,7 +17,6 @@
     "browserify": "^13.0.0",
     "eslint": "^2.7.0",
     "eslint-plugin-react": "^4.2.3",
-    "peer": "^0.2.8",
     "watch": "^0.17.1"
   },
   "dependencies": {
@@ -26,6 +25,8 @@
     "node-sass-middleware": "^0.9.8",
     "react": "^0.14.6",
     "react-dom": "^0.14.6",
-    "socket.io": "^1.4.5"
+    "socket.io": "^1.4.5",
+    "socket.io-p2p": "^2.2.0",
+    "socket.io-p2p-server": "^1.2.0"
   }
 }
