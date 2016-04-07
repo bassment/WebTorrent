@@ -2,4 +2,9 @@
   color: green; }
 
 ul {
-  list-style: none; }
+  list-style: none;
+  padding-left: 0; }
+
+progress[value] {
+  width: 250px;
+  height: 20px; }

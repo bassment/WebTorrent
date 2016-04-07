@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
+import _ from 'lodash';
 
 export default class App extends React.Component {
   constructor(props) {
@@ -108,12 +109,27 @@ export default class App extends React.Component {
     });
   };
 
+  roundFileSize = (fileSize) => {
+    let BYTEtoKB = Number(fileSize / 1024);
+    let roundedSize = _.round(BYTEtoKB, 1);
+    let withKB = roundedSize + ' KBs';
+    return withKB;
+  };
+
+  getFileType = fileType => {
+    let fileTypeArray =  _.split(fileType, '/', 2);
+    return _.head(fileTypeArray);
+  };
+
+  getFileExtension = fileType => _.split(fileType, '/', 2).pop();
+
   render() {
-    const links = this.state.files.map((file, i) => (
+    const links = _.map(this.state.files, (file, i) => (
       <li key={i}>
         <p><b>File Name:</b> {file.fileName}</p>
-        <p><b>File Size:</b> {Number((file.fileSize / 1024).toFixed(1))} KBs</p>
-        <p><b>File Type:</b> {file.fileType}</p>
+        <p><b>File Size:</b> {this.roundFileSize(file.fileSize)}</p>
+        <p><b>File Type:</b> {this.getFileType(file.fileType)}</p>
+        <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
         <span>
           <a target="_blank" href={file.fileUrl}>Open</a> | <a download href={file.fileUrl}>Download</a>
         </span>
@@ -122,17 +138,31 @@ export default class App extends React.Component {
     ));
     return (
       <div className="container">
-        <h1 className="title">Hello</h1>
-        <form action="#" onSubmit={this.onSubmit}>
-          <label>Select file to send</label>
-          <input type="file" name="filename" ref="fileInput" size="40" onChange={this.onFileChange} />
-          <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
-          <br/>
-          <input className="btn btn-default" type="submit" value="Submit" />
-        </form>
-          <ul>
-            { links }
-          </ul>
+        <div className="row">
+          <h1 className="title">WebTorrent</h1>
+          <div className="col-md-6 col-sm-6 col-xs-6">
+            <form action="#" onSubmit={this.onSubmit}>
+              <label>Select file to send</label>
+              <input type="file" name="filename"
+                ref="fileInput" size="40" onChange={this.onFileChange} />
+              <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
+              <br/>
+              <input className="btn btn-default" type="submit" value="Submit" />
+            </form>
+          </div>
+          <div className="col-md-6 col-sm-6 col-xs-6"></div>
+        </div>
+        <div className="row">
+          <h3>Download files from other peers:</h3>
+          <hr/>
+          {
+            this.state.files.length ?
+            <ul>{links}</ul> :
+            <h4>
+              Nobody <span className="glyphicon glyphicon-floppy-save"></span> sent you a file <span className="glyphicon glyphicon-folder-open"></span>
+            </h4>
+          }
+        </div>
       </div>
     );
   }

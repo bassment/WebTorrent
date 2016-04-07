@@ -30,4 +30,9 @@ io.on('connection', function (socket) {
   socket.on('peer-file', function (data) {
     socket.broadcast.emit('peer-file', data);
   });
+
+  socket.once('disconnect', function () {
+    socket.disconnect();
+    console.log('Disconnected: %s socket', socket.id);
+  });
 });

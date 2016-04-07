@@ -17,6 +17,7 @@
     "browserify": "^13.0.0",
     "eslint": "^2.7.0",
     "eslint-plugin-react": "^4.2.3",
+    "lodash": "^4.8.2",
     "watch": "^0.17.1"
   },
   "dependencies": {
