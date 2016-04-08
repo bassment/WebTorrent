@@ -11,6 +11,7 @@ export default class App extends React.Component {
 
     this.state = {
       files: [],
+      username: '',
       fileProgressMax: 0,
       fileProgressValue: 0,
       fileBuffer: [],
@@ -24,6 +25,16 @@ export default class App extends React.Component {
     this.p2psocket = new P2P(this.socket, this.opts);
     this.p2psocket.on('peer-file', this.onFile);
   }
+
+  onUsername = (e) => {
+    if (this.refs.username.value !== '') {
+      this.setState({
+        username: this.refs.username.value,
+      });
+
+      this.refs.username.value = '';
+    }
+  };
 
   onFile = (data) => {
     this.setState({
@@ -45,6 +56,7 @@ export default class App extends React.Component {
             fileName: data.fileName,
             fileSize: data.fileSize,
             fileType: data.fileType,
+            uploadedBy: data.uploadedBy,
           },
         ],
         fileBuffer: [],
@@ -77,6 +89,7 @@ export default class App extends React.Component {
               fileName,
               fileSize,
               fileType,
+              uploadedBy: this.state.username,
             });
             if (file.size > offset + evnt.target.result.byteLength) {
               window.setTimeout(sliceFile, 0, offset + chunkSize);
@@ -128,6 +141,7 @@ export default class App extends React.Component {
       <li key={i}>
         <p><b>File Name:</b> {file.fileName}</p>
         <p><b>File Size:</b> {this.roundFileSize(file.fileSize)}</p>
+        <p><b>Uploaded By:</b> {file.uploadedBy}</p>
         <p><b>File Type:</b> {this.getFileType(file.fileType)}</p>
         <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
         <span>
@@ -138,6 +152,15 @@ export default class App extends React.Component {
     ));
     return (
       <div className="container">
+        {
+          this.state.username ?
+            null :
+            <div className="row">
+              <label>Enter your name: </label>
+              <input type="text" ref="username"/>
+              <button className="btn btn-default" onClick={this.onUsername}>Enter</button>
+            </div>
+        }
         <div className="row">
           <h1 className="title">WebTorrent</h1>
           <div className="col-md-6 col-sm-6 col-xs-6">
