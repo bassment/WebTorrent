@@ -27,17 +27,23 @@ server.listen(port);
 console.log('Listening on port', port);
 
 io.on('connection', function (socket) {
-  socket.on('peer-file', function (data) {
-    socket.broadcast.emit('peer-file', data);
-  });
-
   socket.emit('get-socket-id', socket.id);
 
   socket.on('file-data', function (data) {
     socket.nsp.emit('file-data', data);
   });
 
-  socket.on('ask-for-file', function (socketId) {
-    io.to(socketId).emit('give-file-back');
+  socket.on('ask-for-file', function (data) {
+    io.to(data.seederSocketId)
+      .emit('give-file-back',
+      {
+        leecherSocketId: data.leecherSocketId,
+        requestedFileId: data.requestedFileId,
+      }
+    );
+  });
+
+  socket.on('peer-file', function (data) {
+    io.to(data.fileLeecher).emit('peer-file', data);
   });
 });

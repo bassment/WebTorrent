@@ -3,7 +3,9 @@ import io from 'socket.io-client';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
+
 import _ from 'lodash';
+import uuid from 'uuid';
 
 export default class App extends React.Component {
   constructor(props) {
@@ -34,11 +36,13 @@ export default class App extends React.Component {
     const fileInput = this.refs.fileInput;
     if (fileInput.value !== '') {
       const file = fileInput.files[0];
+      const fileId = uuid.v1();
       const fileName = file.name;
       const fileSize = file.size;
       const fileType = file.type;
       this.p2psocket.emit('file-data', {
         file,
+        fileId,
         fileName,
         fileSize,
         fileType,
@@ -54,6 +58,7 @@ export default class App extends React.Component {
       files: [
         ...this.state.files, {
           file: data.file,
+          fileId: data.fileId,
           fileName: data.fileName,
           fileSize: data.fileSize,
           fileType: data.fileType,
@@ -65,40 +70,11 @@ export default class App extends React.Component {
     });
   };
 
-  onPeerFile = (data) => {
-    this.setState({
-      fileBuffer: [
-        ...this.state.fileBuffer,
-        data.file,
-      ],
-      fileSize: this.state.fileSize + data.file.byteLength,
-      fileProgressMax: this.state.files[0].fileSize,
-      fileProgressValue: this.state.fileProgressValue + data.file.byteLength,
-    });
-
-    if (this.state.fileSize === this.state.files[0].fileSize) {
-      const blob = new window.Blob(this.state.fileBuffer, { type: data.fileType });
-      const urlCreator = window.URL || window.webkitURL;
-      const fileUrl = urlCreator.createObjectURL(blob);
-
-      this.setState({
-        files: [
-          Object.assign(this.state.files[0], {
-            fileUrl,
-          }),
-        ],
-        fileBuffer: [],
-        fileSize: 0,
-        fileProgressMax: 0,
-        fileProgressValue: 0,
-      });
-      this.refs.downloadLink.click();
-    }
-  };
-
-  onGiveFileBack = () => {
-    const file = new window.Blob([this.state.files[0].file]);
-    const fileSize = this.state.files[0].fileSize;
+  onGiveFileBack = (data) => {
+    let requestedFileObject = this.state.files.filter(file => file.fileId === data.requestedFileId);
+    requestedFileObject = requestedFileObject[Object.keys(requestedFileObject)[0]];
+    const file = new window.Blob([requestedFileObject.file]);
+    const fileSize = requestedFileObject.fileSize;
 
     this.setState({
       fileProgressMax: fileSize,
@@ -110,6 +86,8 @@ export default class App extends React.Component {
       reader.onload = (() => evnt => {
         this.p2psocket.emit('peer-file', {
           file: evnt.target.result,
+          fileLeecher: data.leecherSocketId,
+          requestedFileObject,
         });
         if (file.size > offset + evnt.target.result.byteLength) {
           window.setTimeout(sliceFile, 0, offset + chunkSize);
@@ -129,6 +107,38 @@ export default class App extends React.Component {
     };
 
     sliceFile(0);
+  };
+
+  onPeerFile = (data) => {
+    this.setState({
+      fileBuffer: [
+        ...this.state.fileBuffer,
+        data.file,
+      ],
+      fileSize: this.state.fileSize + data.file.byteLength,
+      fileProgressMax: data.requestedFileObject.fileSize,
+      fileProgressValue: this.state.fileProgressValue + data.file.byteLength,
+    });
+
+    if (this.state.fileSize === data.requestedFileObject.fileSize) {
+      const blob = new window.Blob(this.state.fileBuffer);
+      const urlCreator = window.URL || window.webkitURL;
+      const fileUrl = urlCreator.createObjectURL(blob);
+
+      this.setState({
+        files: [
+          ...this.state.files.filter(file => file.fileId !== data.requestedFileObject.fileId),
+          Object.assign(data.requestedFileObject, {
+            fileUrl,
+          }),
+        ],
+        fileBuffer: [],
+        fileSize: 0,
+        fileProgressMax: 0,
+        fileProgressValue: 0,
+      });
+      this.refs[data.requestedFileObject.fileId].click();
+    }
   };
 
   onGetSocketId = (socketId) => {
@@ -168,8 +178,8 @@ export default class App extends React.Component {
 
   getFileExtension = fileType => _.split(fileType, '/', 2).pop();
 
-  onDownload = (socketId) => {
-    this.p2psocket.emit('ask-for-file', socketId);
+  onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
+    this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
   };
 
   render() {
@@ -185,16 +195,16 @@ export default class App extends React.Component {
         {
           !file.ownFile ?
             <button
-              onClick={this.onDownload.bind(this, file.seederSocketId)}
+              onClick={this.onDownload.bind(this, file.seederSocketId, this.state.mySocketId, file.fileId)}
               className="btn">
               Download
             </button> :
             <p>This is your own file</p>
         }
         <a style={{ display: 'none' }}
-          download={this.state.files[0].fileName}
-          ref='downloadLink'
-          href={this.state.files[0].fileUrl}></a>
+          download={file.fileName}
+          ref={file.fileId}
+          href={file.fileUrl}></a>
         <hr />
       </li>
     ));
