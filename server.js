@@ -38,7 +38,6 @@ io.on('connection', function (socket) {
   });
 
   socket.on('ask-for-file', function (socketId) {
-    console.log('Asked for a file' + socketId);
     io.to(socketId).emit('give-file-back');
   });
 });

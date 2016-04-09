@@ -42,7 +42,7 @@ export default class App extends React.Component {
         fileName,
         fileSize,
         fileType,
-        socketId: this.state.mySocketId,
+        seederSocketId: this.state.mySocketId,
         uploadedBy: this.state.username,
       });
       fileInput.value = '';
@@ -57,11 +57,11 @@ export default class App extends React.Component {
           fileName: data.fileName,
           fileSize: data.fileSize,
           fileType: data.fileType,
+          seederSocketId: data.seederSocketId,
           uploadedBy: data.uploadedBy,
-          authorSocketId: data.socketId,
+          ownFile: this.state.mySocketId === data.seederSocketId ? true : false,
         },
       ],
-      receivedFileSize: data.fileSize,
     });
   };
 
@@ -72,11 +72,11 @@ export default class App extends React.Component {
         data.file,
       ],
       fileSize: this.state.fileSize + data.file.byteLength,
-      fileProgressMax: this.state.receivedFileSize,
+      fileProgressMax: this.state.files[0].fileSize,
       fileProgressValue: this.state.fileProgressValue + data.file.byteLength,
     });
 
-    if (this.state.fileSize === this.state.receivedFileSize) {
+    if (this.state.fileSize === this.state.files[0].fileSize) {
       const blob = new window.Blob(this.state.fileBuffer, { type: data.fileType });
       const urlCreator = window.URL || window.webkitURL;
       const fileUrl = urlCreator.createObjectURL(blob);
@@ -182,11 +182,15 @@ export default class App extends React.Component {
         <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
         <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
         <br/>
-        <button
-          onClick={this.onDownload.bind(this, file.authorSocketId)}
-          className="btn">
-          Download
-        </button>
+        {
+          !file.ownFile ?
+            <button
+              onClick={this.onDownload.bind(this, file.seederSocketId)}
+              className="btn">
+              Download
+            </button> :
+            <p>This is your own file</p>
+        }
         <a style={{ display: 'none' }}
           download={this.state.files[0].fileName}
           ref='downloadLink'
