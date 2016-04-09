@@ -23,8 +23,119 @@ export default class App extends React.Component {
     this.socket = io();
     this.opts = { peerOpts: { trickle: false }, autoUpgrade: false };
     this.p2psocket = new P2P(this.socket, this.opts);
-    this.p2psocket.on('peer-file', this.onFile);
+    this.p2psocket.on('get-socket-id', this.onGetSocketId);
+    this.p2psocket.on('file-data', this.onFileData);
+    this.p2psocket.on('give-file-back', this.onGiveFileBack);
+    this.p2psocket.on('peer-file', this.onPeerFile);
   }
+
+  onFileSubmit = (e) => {
+    e.preventDefault();
+    const fileInput = this.refs.fileInput;
+    if (fileInput.value !== '') {
+      const file = fileInput.files[0];
+      const fileName = file.name;
+      const fileSize = file.size;
+      const fileType = file.type;
+      this.p2psocket.emit('file-data', {
+        file,
+        fileName,
+        fileSize,
+        fileType,
+        socketId: this.state.mySocketId,
+        uploadedBy: this.state.username,
+      });
+      fileInput.value = '';
+    }
+  };
+
+  onFileData = (data) => {
+    this.setState({
+      files: [
+        ...this.state.files, {
+          file: data.file,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          fileType: data.fileType,
+          uploadedBy: data.uploadedBy,
+          authorSocketId: data.socketId,
+        },
+      ],
+      receivedFileSize: data.fileSize,
+    });
+  };
+
+  onPeerFile = (data) => {
+    this.setState({
+      fileBuffer: [
+        ...this.state.fileBuffer,
+        data.file,
+      ],
+      fileSize: this.state.fileSize + data.file.byteLength,
+      fileProgressMax: this.state.receivedFileSize,
+      fileProgressValue: this.state.fileProgressValue + data.file.byteLength,
+    });
+
+    if (this.state.fileSize === this.state.receivedFileSize) {
+      const blob = new window.Blob(this.state.fileBuffer, { type: data.fileType });
+      const urlCreator = window.URL || window.webkitURL;
+      const fileUrl = urlCreator.createObjectURL(blob);
+
+      this.setState({
+        files: [
+          Object.assign(this.state.files[0], {
+            fileUrl,
+          }),
+        ],
+        fileBuffer: [],
+        fileSize: 0,
+        fileProgressMax: 0,
+        fileProgressValue: 0,
+      });
+      this.refs.downloadLink.click();
+    }
+  };
+
+  onGiveFileBack = () => {
+    const file = new window.Blob([this.state.files[0].file]);
+    const fileSize = this.state.files[0].fileSize;
+
+    this.setState({
+      fileProgressMax: fileSize,
+    });
+
+    var chunkSize = 16384;
+    var sliceFile = offset => {
+      var reader = new window.FileReader();
+      reader.onload = (() => evnt => {
+        this.p2psocket.emit('peer-file', {
+          file: evnt.target.result,
+        });
+        if (file.size > offset + evnt.target.result.byteLength) {
+          window.setTimeout(sliceFile, 0, offset + chunkSize);
+        }
+
+        this.setState({
+          fileProgressValue: offset + evnt.target.result.byteLength,
+        });
+      })(file);
+
+      reader.onerror = err => {
+        console.error('Error while reading file', err);
+      };
+
+      var slice = file.slice(offset, offset + chunkSize);
+      reader.readAsArrayBuffer(slice);
+    };
+
+    sliceFile(0);
+  };
+
+  onGetSocketId = (socketId) => {
+    this.setState({
+      mySocketId: socketId,
+    });
+  };
 
   onUsername = (e) => {
     if (this.refs.username.value !== '') {
@@ -33,85 +144,6 @@ export default class App extends React.Component {
       });
 
       this.refs.username.value = '';
-    }
-  };
-
-  onFile = (data) => {
-    this.setState({
-      fileBuffer: [
-        ...this.state.fileBuffer,
-        data.file,
-      ],
-      fileSize: this.state.fileSize + data.file.byteLength,
-    });
-
-    if (this.state.fileSize === data.fileSize) {
-      const blob = new window.Blob(this.state.fileBuffer, { type: data.fileType });
-      const urlCreator = window.URL || window.webkitURL;
-      const fileUrl = urlCreator.createObjectURL(blob);
-      this.setState({
-        files: [
-          ...this.state.files, {
-            fileUrl,
-            fileName: data.fileName,
-            fileSize: data.fileSize,
-            fileType: data.fileType,
-            uploadedBy: data.uploadedBy,
-          },
-        ],
-        fileBuffer: [],
-        fileSize: 0,
-      });
-    }
-  };
-
-  onSubmit = (e) => {
-    e.preventDefault();
-    const fileInput = this.refs.fileInput;
-    if (fileInput.value !== '') {
-      const file = fileInput.files[0];
-      const fileName = file.name;
-      const fileSize = file.size;
-      const fileType = file.type;
-      const p2psocket = this.p2psocket;
-
-      this.setState({
-        fileProgressMax: fileSize,
-      });
-
-      var chunkSize = 16384;
-      var sliceFile = offset => {
-        var reader = new window.FileReader();
-        reader.onload = (() => {
-          return evnt => {
-            p2psocket.emit('peer-file', {
-              file: evnt.target.result,
-              fileName,
-              fileSize,
-              fileType,
-              uploadedBy: this.state.username,
-            });
-            if (file.size > offset + evnt.target.result.byteLength) {
-              window.setTimeout(sliceFile, 0, offset + chunkSize);
-            }
-
-            this.setState({
-              fileProgressValue: offset + evnt.target.result.byteLength,
-            });
-          };
-        })(file);
-
-        reader.onerror = err => {
-          console.error('Error while reading file', err);
-        };
-
-        var slice = file.slice(offset, offset + chunkSize);
-        reader.readAsArrayBuffer(slice);
-      };
-
-      sliceFile(0);
-
-      fileInput.value = '';
     }
   };
 
@@ -136,6 +168,10 @@ export default class App extends React.Component {
 
   getFileExtension = fileType => _.split(fileType, '/', 2).pop();
 
+  onDownload = (socketId) => {
+    this.p2psocket.emit('ask-for-file', socketId);
+  };
+
   render() {
     const links = _.map(this.state.files, (file, i) => (
       <li key={i}>
@@ -144,9 +180,17 @@ export default class App extends React.Component {
         <p><b>Uploaded By:</b> {file.uploadedBy}</p>
         <p><b>File Type:</b> {this.getFileType(file.fileType)}</p>
         <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
-        <span>
-          <a target="_blank" href={file.fileUrl}>Open</a> | <a download href={file.fileUrl}>Download</a>
-        </span>
+        <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
+        <br/>
+        <button
+          onClick={this.onDownload.bind(this, file.authorSocketId)}
+          className="btn">
+          Download
+        </button>
+        <a style={{ display: 'none' }}
+          download={this.state.files[0].fileName}
+          ref='downloadLink'
+          href={this.state.files[0].fileUrl}></a>
         <hr />
       </li>
     ));
@@ -164,11 +208,10 @@ export default class App extends React.Component {
         <div className="row">
           <h1 className="title">WebTorrent</h1>
           <div className="col-md-6 col-sm-6 col-xs-6">
-            <form action="#" onSubmit={this.onSubmit}>
+            <form action="#" onSubmit={this.onFileSubmit}>
               <label>Select file to send</label>
               <input type="file" name="filename"
                 ref="fileInput" size="40" onChange={this.onFileChange} />
-              <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
               <br/>
               <input className="btn btn-default" type="submit" value="Submit" />
             </form>
@@ -182,7 +225,10 @@ export default class App extends React.Component {
             this.state.files.length ?
             <ul>{links}</ul> :
             <h4>
-              Nobody <span className="glyphicon glyphicon-floppy-save"></span> sent you a file <span className="glyphicon glyphicon-folder-open"></span>
+              Nobody
+              <span className="glyphicon glyphicon-floppy-save"></span>
+              sent you a file
+              <span className="glyphicon glyphicon-folder-open"></span>
             </h4>
           }
         </div>

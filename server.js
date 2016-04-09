@@ -30,4 +30,15 @@ io.on('connection', function (socket) {
   socket.on('peer-file', function (data) {
     socket.broadcast.emit('peer-file', data);
   });
+
+  socket.emit('get-socket-id', socket.id);
+
+  socket.on('file-data', function (data) {
+    socket.nsp.emit('file-data', data);
+  });
+
+  socket.on('ask-for-file', function (socketId) {
+    console.log('Asked for a file' + socketId);
+    io.to(socketId).emit('give-file-back');
+  });
 });

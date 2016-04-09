@@ -5,7 +5,7 @@
   "scripts": {
     "build:js": "browserify ./src/app.js -t [ babelify --presets [ es2015 react stage-0 ] ] --outfile public/all.js",
     "watch": "watch 'npm run build:js' ./src",
-    "start": "nodemon --watch ./server.js"
+    "start": "nodemon --watch server.js"
   },
   "license": "ISC",
   "devDependencies": {
