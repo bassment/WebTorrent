@@ -29,11 +29,37 @@ export default class App extends React.Component {
     this.p2psocket.on('new-user', this.onNewUser);
     this.p2psocket.on('disconnect-user', this.onDisconnectUser);
     this.p2psocket.on('file-data', this.onFileData);
+    this.p2psocket.on('new-file-name', this.onNewFileName);
+    this.p2psocket.on('new-file-description', this.onNewFileDescription);
     this.p2psocket.on('give-file-back', this.onGiveFileBack);
     this.p2psocket.on('peer-file', this.onPeerFile);
   }
 
   // File p2p transition methods
+
+  onNewFileName = (data) => {
+    const fileObject = this.state.files.find(file => file.fileId === data.fileId);
+    this.setState({
+      files: [
+        ...this.state.files.filter(file => file.fileId !== data.fileId),
+        Object.assign(fileObject, {
+          suggestedFileName: data.newFileName,
+        }),
+      ],
+    });
+  };
+
+  onNewFileDescription = (data) => {
+    const fileObject = this.state.files.find(file => file.fileId === data.fileId);
+    this.setState({
+      files: [
+        ...this.state.files.filter(file => file.fileId !== data.fileId),
+        Object.assign(fileObject, {
+          fileDescription: data.newFileDescription,
+        }),
+      ],
+    });
+  };
 
   onFileSubmit = (e) => {
     e.preventDefault();
@@ -242,7 +268,6 @@ export default class App extends React.Component {
   };
 
   onEditFileName = (socketId, fileId) => {
-    // ReactDOM.findDOMNode(this.refs.newFileName).focus();
     const fileObject = this.state.files.find(file => file.fileId === fileId);
     this.setState({
       files: [
@@ -255,7 +280,6 @@ export default class App extends React.Component {
   };
 
   onEditFileDescription = (socketId, fileId) => {
-    // ReactDOM.findDOMNode(this.refs.newFileDescription).focus();
     const fileObject = this.state.files.find(file => file.fileId === fileId);
     this.setState({
       files: [
@@ -269,15 +293,40 @@ export default class App extends React.Component {
 
   onEditFileSave = (socketId, fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
-    this.setState({
-      files: [
-        ...this.state.files.filter(file => file.fileId !== fileId),
-        Object.assign(fileObject, {
-          currentlyEditingName: false,
-          currentlyEditingDescription: false,
-        }),
-      ],
-    });
+    if (fileObject.currentlyEditingName) {
+      const newFileName = this.refs.newFileName.value ?
+        this.refs.newFileName.value :
+          fileObject.suggestedFileName;
+
+      this.p2psocket.emit('new-file-name', { newFileName, fileId });
+
+      this.setState({
+        files: [
+          ...this.state.files.filter(file => file.fileId !== fileId),
+          Object.assign(fileObject, {
+            suggestedFileName: newFileName,
+            currentlyEditingName: false,
+            currentlyEditingDescription: false,
+          }),
+        ],
+      });
+    } else if (fileObject.currentlyEditingDescription) {
+      const newFileDescription = this.refs.newFileDescription.value ?
+        this.refs.newFileDescription.value :
+          fileObject.fileDescription;
+
+      this.p2psocket.emit('new-file-description', { newFileDescription, fileId });
+
+      this.setState({
+        files: [
+          ...this.state.files.filter(file => file.fileId !== fileId),
+          Object.assign(fileObject, {
+            fileDescription: newFileDescription,
+            currentlyEditingDescription: false,
+          }),
+        ],
+      });
+    }
   };
 
   // Helper methods

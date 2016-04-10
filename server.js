@@ -50,6 +50,20 @@ io.on('connection', function (socket) {
     socket.nsp.emit('file-data', data);
   });
 
+  socket.on('new-file-name', function (data) {
+    socket.broadcast.emit('new-file-name', {
+      newFileName: data.newFileName,
+      fileId: data.fileId,
+    });
+  });
+
+  socket.on('new-file-description', function (data) {
+    socket.broadcast.emit('new-file-description', {
+      newFileDescription: data.newFileDescription,
+      fileId: data.fileId,
+    });
+  });
+
   socket.on('ask-for-file', function (data) {
     io.to(data.seederSocketId)
       .emit('give-file-back',
