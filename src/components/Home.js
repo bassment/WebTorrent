@@ -131,12 +131,11 @@ export default class App extends React.Component {
   };
 
   onGiveFileBack = (data) => {
-    let requestedFileObject = this.state.files.filter(file => file.fileId === data.requestedFileId);
-    requestedFileObject = requestedFileObject[Object.keys(requestedFileObject)[0]];
+    let requestedFileObject = this.state.files.find(file => file.fileId === data.requestedFileId);
     const file = new window.Blob([requestedFileObject.file]);
     const fileSize = requestedFileObject.fileSize;
 
-    var chunkSize = 16384;
+    var chunkSize = 98384;
     var sliceFile = offset => {
       var reader = new window.FileReader();
       reader.onload = (() => evnt => {
@@ -157,6 +156,17 @@ export default class App extends React.Component {
             ...this.state.files.filter(file => file.fileId !== requestedFileObject.fileId),
           ],
         });
+
+        if (requestedFileObject.fileProgressValue === requestedFileObject.fileSize) {
+          this.setState({
+            files: [
+              Object.assign(requestedFileObject, {
+                fileProgressValue: 0,
+              }),
+              ...this.state.files.filter(file => file.fileId !== requestedFileObject.fileId),
+            ],
+          });
+        }
       })(file);
 
       reader.onerror = err => {
@@ -266,6 +276,8 @@ export default class App extends React.Component {
       });
     }
   };
+
+  // On file edit actions
 
   onEditFileName = (socketId, fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
