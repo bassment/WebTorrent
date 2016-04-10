@@ -142,7 +142,7 @@ export default class App extends React.Component {
     const file = new window.Blob([requestedFileObject.file]);
     const fileSize = requestedFileObject.fileSize;
 
-    var chunkSize = 98384;
+    var chunkSize = 198384;
     var sliceFile = offset => {
       var reader = new window.FileReader();
       reader.onload = (() => evnt => {
@@ -428,8 +428,8 @@ export default class App extends React.Component {
                 <div>
                   {
                     file.fileLeechers ?
-                      file.fileLeechers.map(leecher => (
-                        <h5>
+                      file.fileLeechers.map((leecher, i) => (
+                        <h5 key={i}>
                           <span style={{ color: 'purple' }}>{leecher} </span>
                           downloading/downloaded your file
                         </h5>
