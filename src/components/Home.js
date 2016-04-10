@@ -13,11 +13,8 @@ export default class App extends React.Component {
 
     this.state = {
       files: [],
+      mySocketId: '',
       username: '',
-      fileProgressMax: 0,
-      fileProgressValue: 0,
-      fileBuffer: [],
-      fileSize: 0,
     };
   }
 
@@ -48,6 +45,7 @@ export default class App extends React.Component {
         fileType,
         seederSocketId: this.state.mySocketId,
         uploadedBy: this.state.username,
+        uploadedAt: new Date().toISOString().substring(0, 10),
       });
       fileInput.value = '';
     }
@@ -64,7 +62,12 @@ export default class App extends React.Component {
           fileType: data.fileType,
           seederSocketId: data.seederSocketId,
           uploadedBy: data.uploadedBy,
-          ownFile: this.state.mySocketId === data.seederSocketId ? true : false,
+          uploadedAt: data.uploadedAt,
+          ownFile: this.state.mySocketId === data.seederSocketId &&
+            data.uploadedBy === this.state.username ? true : false,
+          fileProgressValue: 0,
+          chunkFileSize: 0,
+          fileBuffer: [],
         },
       ],
     });
@@ -75,10 +78,6 @@ export default class App extends React.Component {
     requestedFileObject = requestedFileObject[Object.keys(requestedFileObject)[0]];
     const file = new window.Blob([requestedFileObject.file]);
     const fileSize = requestedFileObject.fileSize;
-
-    this.setState({
-      fileProgressMax: fileSize,
-    });
 
     var chunkSize = 16384;
     var sliceFile = offset => {
@@ -94,7 +93,12 @@ export default class App extends React.Component {
         }
 
         this.setState({
-          fileProgressValue: offset + evnt.target.result.byteLength,
+          files: [
+            Object.assign(requestedFileObject, {
+              fileProgressValue: offset + evnt.target.result.byteLength,
+            }),
+            ...this.state.files.filter(file => file.fileId !== requestedFileObject.fileId),
+          ],
         });
       })(file);
 
@@ -110,33 +114,39 @@ export default class App extends React.Component {
   };
 
   onPeerFile = (data) => {
+    const fileObject =
+      this.state.files.find(file => file.fileId === data.requestedFileObject.fileId);
     this.setState({
-      fileBuffer: [
-        ...this.state.fileBuffer,
-        data.file,
+      files: [
+        Object.assign(fileObject, {
+          fileBuffer: [
+            ...fileObject.fileBuffer,
+            data.file,
+          ],
+          chunkFileSize: fileObject.chunkFileSize + data.file.byteLength,
+          fileProgressValue: fileObject.fileProgressValue + data.file.byteLength,
+        }),
+        ...this.state.files.filter(file => file.fileId !== data.requestedFileObject.fileId),
       ],
-      fileSize: this.state.fileSize + data.file.byteLength,
-      fileProgressMax: data.requestedFileObject.fileSize,
-      fileProgressValue: this.state.fileProgressValue + data.file.byteLength,
     });
 
-    if (this.state.fileSize === data.requestedFileObject.fileSize) {
-      const blob = new window.Blob(this.state.fileBuffer);
+    if (fileObject.chunkFileSize === fileObject.fileSize) {
+      const blob = new window.Blob(fileObject.fileBuffer);
       const urlCreator = window.URL || window.webkitURL;
       const fileUrl = urlCreator.createObjectURL(blob);
 
       this.setState({
         files: [
-          ...this.state.files.filter(file => file.fileId !== data.requestedFileObject.fileId),
-          Object.assign(data.requestedFileObject, {
+          Object.assign(fileObject, {
             fileUrl,
+            fileBuffer: [],
+            chunkFileSize: 0,
+            fileProgressValue: 0,
           }),
+          ...this.state.files.filter(file => file.fileId !== fileObject.fileId),
         ],
-        fileBuffer: [],
-        fileSize: 0,
-        fileProgressMax: 0,
-        fileProgressValue: 0,
       });
+
       this.refs[data.requestedFileObject.fileId].click();
     }
   };
@@ -159,7 +169,6 @@ export default class App extends React.Component {
 
   onFileChange = (e) => {
     this.setState({
-      fileProgressMax: 0,
       fileProgressValue: 0,
     });
   };
@@ -179,23 +188,36 @@ export default class App extends React.Component {
   getFileExtension = fileType => _.split(fileType, '/', 2).pop();
 
   onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
-    this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
+    const fileObject =
+      this.state.files.find(file => file.fileId === requestedFileId);
+    if (fileObject.fileUrl) {
+      this.refs[requestedFileId].click();
+    } else {
+      this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
+    }
   };
 
   render() {
-    const links = _.map(this.state.files, (file, i) => (
+    const sortedLinks = _.sortBy(this.state.files, file => file.fileName);
+    const links = _.map(sortedLinks, (file, i) => (
       <li key={i}>
         <p><b>File Name:</b> {file.fileName}</p>
         <p><b>File Size:</b> {this.roundFileSize(file.fileSize)}</p>
         <p><b>Uploaded By:</b> {file.uploadedBy}</p>
+        <p><b>Uploaded At:</b> {file.uploadedAt}</p>
         <p><b>File Type:</b> {this.getFileType(file.fileType)}</p>
         <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
-        <progress value={this.state.fileProgressValue} max={this.state.fileProgressMax} />
+        <progress value={file.fileProgressValue} max={file.fileSize} />
         <br/>
         {
           !file.ownFile ?
             <button
-              onClick={this.onDownload.bind(this, file.seederSocketId, this.state.mySocketId, file.fileId)}
+              onClick={this.onDownload.bind(
+                this,
+                file.seederSocketId,
+                this.state.mySocketId,
+                file.fileId
+              )}
               className="btn">
               Download
             </button> :
