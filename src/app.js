@@ -1,5 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import Home from './components/Home.js';
+import WebTorrent from './components/WebTorrent.js';
 
-ReactDOM.render(<Home />, document.getElementById('app'));
+ReactDOM.render(<WebTorrent />, document.getElementById('app'));

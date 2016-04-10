@@ -12,7 +12,7 @@ app.use(
     src: __dirname + '/sass',
     dest: __dirname + '/public/stylesheets',
     prefix:  '/stylesheets',
-    debug: true,
+    debug: false,
   })
 );
 app.use(express.static('./public'));
@@ -69,6 +69,7 @@ io.on('connection', function (socket) {
       .emit('give-file-back',
       {
         leecherSocketId: data.leecherSocketId,
+        leecherUsername: data.leecherUsername,
         requestedFileId: data.requestedFileId,
       }
     );

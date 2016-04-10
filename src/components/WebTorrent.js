@@ -97,7 +97,7 @@ export default class App extends React.Component {
       fileDescriptionInput.value = '';
     } else {
       this.setState({
-        formErrorMessage: 'All fields are requrired!',
+        formErrorMessage: 'All fields are required!',
       });
     }
   };
@@ -115,18 +115,25 @@ export default class App extends React.Component {
           currentlyEditingDescription: false,
           chunkFileSize: 0,
           fileBuffer: [],
+          fileLeechers: [],
         }),
       ],
     });
   };
 
   onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
+    const leecherUsername = this.state.username;
     const fileObject =
       this.state.files.find(file => file.fileId === requestedFileId);
     if (fileObject.fileUrl) {
       this.refs[requestedFileId].click();
     } else {
-      this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
+      this.p2psocket.emit('ask-for-file', {
+        seederSocketId,
+        leecherSocketId,
+        leecherUsername,
+        requestedFileId,
+      });
     }
   };
 
@@ -176,6 +183,18 @@ export default class App extends React.Component {
       var slice = file.slice(offset, offset + chunkSize);
       reader.readAsArrayBuffer(slice);
     };
+
+    let leechers = requestedFileObject.fileLeechers;
+    leechers.push(data.leecherUsername);
+
+    this.setState({
+      files: [
+        Object.assign(requestedFileObject, {
+          fileLeechers: leechers,
+        }),
+        ...this.state.files.filter(file => file.fileId !== requestedFileObject.fileId),
+      ],
+    });
 
     sliceFile(0);
   };
@@ -366,6 +385,7 @@ export default class App extends React.Component {
     const sortedLinks = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
     const links = _.map(sortedLinks, (file, i) => (
       <li key={i}>
+        {file.ownFile ? <h5 style={{ color: 'green' }}>This is your own file</h5> : null }
         {
           !file.currentlyEditingName ?
             <p><b>File Name:</b> {file.suggestedFileName}</p> :
@@ -406,7 +426,16 @@ export default class App extends React.Component {
             </button> :
               !file.currentlyEditingName && !file.currentlyEditingDescription ?
                 <div>
-                  <h5 style={{ color: 'green' }}>This is your own file</h5>
+                  {
+                    file.fileLeechers ?
+                      file.fileLeechers.map(leecher => (
+                        <h5>
+                          <span style={{ color: 'purple' }}>{leecher} </span>
+                          downloading/downloaded your file
+                        </h5>
+                      )) :
+                      null
+                  }
                   <button
                     onClick={this.onEditFileName.bind(
                       this,
@@ -444,15 +473,77 @@ export default class App extends React.Component {
       </li>
     ));
     return (
-      <div className="container">
-        {
-          this.state.username ?
-            null :
-            <div className="row">
-              <div className="col-md-4 col-sm-4 col-xs-4">
+      this.state.username ?
+        <div className="container">
+          <div className="row">
+            <h1 className="title">WebTorrent</h1>
+            <div className="col-md-6 col-sm-6 col-xs-6">
+              <form onSubmit={this.onFileSubmit}>
+                <div className="form-group">
+                  <label forHTML="suggestedFileName">Enter file name: </label>
+                  <input className="form-control"
+                    type="text" id="suggestedFileName"
+                    ref="suggestedFileName" placeholder="Suggested Name" />
+                </div>
+                <div className="form-group">
+                  <label forHTML="fileDescription">Enter file description: </label>
+                  <textarea className="form-control"
+                    id="fileDescription" rows="5"
+                    ref="fileDescription" placeholder="File Description"/>
+                </div>
+                <div className="form-group">
+                  <label forHTML="fileName">Select file to send: </label>
+                  <input type="file" id="fileName"
+                    ref="fileInput" size="40" onChange={this.onFileChange} />
+                </div>
+                <input className="btn btn-default" type="submit" value="Send" />
+              </form>
+              {
+                this.state.formErrorMessage ?
+                  <div className="alert alert-danger">
+                    <h5 style={{ color: 'red' }}>{this.state.formErrorMessage}</h5>
+                  </div> :
+                  null
+              }
+            </div>
+            <div className="col-md-6 col-sm-6 col-xs-6">
+              <div className="pull-right">
+                <h5>Who is online?</h5>
+                {
+                  this.state.userEnterLeaveMessage ?
+                    <h6 style={{ color: this.state.userEnterLeaveMessage.messageColor }}>
+                      {this.state.userEnterLeaveMessage.message}
+                    </h6> :
+                    null
+                }
+                <ul>
+                  {userList}
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="row">
+            <h3>Download Files from other Peers:</h3>
+            <hr/>
+            <div className="col-md-6 col-sm-6 col-xs-6">
+              {
+                this.state.files.length ?
+                <ul>{links}</ul> :
+                  <h4>
+                    There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
+                  </h4>
+              }
+            </div>
+            <div className="col-md-6 col-sm-6 col-xs-6"></div>
+          </div>
+        </div> :
+          <div className="row">
+            <div className="col-md-4 col-sm-6 col-xs-6 col-md-offset-3 col-sm-offset-3 col-xs-offset-3">
+              <div style={{ marginTop: '150px' }}>
+                <h1 style={{ color: 'green' }}>Welcome to Torrent!</h1>
                 <form onSubmit={this.onUsername}>
                   <div className="form-group">
-                    <label forHTML="username">Enter your name: </label>
+                    <label forHTML="username">Enter your Username: </label>
                     <input className="form-control"
                       type="text" id="username"
                       ref="username" placeholder="Your Name" />
@@ -460,71 +551,8 @@ export default class App extends React.Component {
                   <input type="submit" className="btn btn-default" value="Enter" />
                 </form>
               </div>
-              <div className="col-md-8 col-sm-8 col-xs-8"></div>
-            </div>
-        }
-        <div className="row">
-          <h1 className="title">WebTorrent</h1>
-          <div className="col-md-6 col-sm-6 col-xs-6">
-            <form onSubmit={this.onFileSubmit}>
-              <div className="form-group">
-                <label forHTML="suggestedFileName">Enter file name: </label>
-                <input className="form-control"
-                  type="text" id="suggestedFileName"
-                  ref="suggestedFileName" placeholder="Suggested Name" />
-              </div>
-              <div className="form-group">
-                <label forHTML="fileDescription">Enter file description: </label>
-                <textarea className="form-control"
-                  id="fileDescription" rows="5"
-                  ref="fileDescription" placeholder="File Description"/>
-              </div>
-              <div className="form-group">
-                <label forHTML="fileName">Select file to send: </label>
-                <input type="file" id="fileName"
-                  ref="fileInput" size="40" onChange={this.onFileChange} />
-              </div>
-              <input className="btn btn-default" type="submit" value="Send" />
-            </form>
-            {
-              this.state.formErrorMessage ?
-                <div className="alert alert-danger">
-                  <h5 style={{ color: 'red' }}>{this.state.formErrorMessage}</h5>
-                </div> :
-                null
-            }
-          </div>
-          <div className="col-md-6 col-sm-6 col-xs-6">
-            <div className="pull-right">
-              <h5>Who is online?</h5>
-              {
-                this.state.userEnterLeaveMessage ?
-                  <h6 style={{ color: this.state.userEnterLeaveMessage.messageColor }}>
-                    {this.state.userEnterLeaveMessage.message}
-                  </h6> :
-                  null
-              }
-              <ul>
-                {userList}
-              </ul>
             </div>
           </div>
-        </div>
-        <div className="row">
-          <h3>Download Files from other Peers:</h3>
-          <hr/>
-          <div className="col-md-6 col-sm-6 col-xs-6">
-            {
-              this.state.files.length ?
-              <ul>{links}</ul> :
-                <h4>
-                  There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
-              </h4>
-            }
-          </div>
-          <div className="col-md-6 col-sm-6 col-xs-6"></div>
-        </div>
-      </div>
     );
   }
 }
