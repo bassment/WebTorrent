@@ -16,6 +16,7 @@ export default class App extends React.Component {
       mySocketId: '',
       username: '',
       userEnterLeaveMessage: {},
+      formErrorMessage: '',
     };
   }
 
@@ -36,8 +37,13 @@ export default class App extends React.Component {
 
   onFileSubmit = (e) => {
     e.preventDefault();
+    const suggestedFileNameInput = this.refs.suggestedFileName;
+    const fileDescriptionInput = this.refs.fileDescription;
     const fileInput = this.refs.fileInput;
-    if (fileInput.value !== '') {
+    if (fileInput.value !== '' &&
+      suggestedFileNameInput.value !== '' &&
+      fileDescriptionInput.value !== ''
+    ) {
       const file = fileInput.files[0];
       const fileId = uuid.v1();
       const fileName = file.name;
@@ -47,34 +53,41 @@ export default class App extends React.Component {
         file,
         fileId,
         fileName,
+        suggestedFileName: suggestedFileNameInput.value,
+        fileDescription: fileDescriptionInput.value,
         fileSize,
         fileType,
         seederSocketId: this.state.mySocketId,
         uploadedBy: this.state.username,
-        uploadedAt: new Date().toISOString().substring(0, 10),
+        uploadedAt: new Date().toLocaleTimeString('en-GB'),
       });
+
+      this.setState({
+        formErrorMessage: '',
+      });
+
       fileInput.value = '';
+      suggestedFileNameInput.value = '';
+      fileDescriptionInput.value = '';
+    } else {
+      this.setState({
+        formErrorMessage: 'All fields are requrired! ;)',
+      });
     }
   };
 
   onFileData = (data) => {
     this.setState({
       files: [
-        ...this.state.files, {
-          file: data.file,
-          fileId: data.fileId,
-          fileName: data.fileName,
-          fileSize: data.fileSize,
-          fileType: data.fileType,
-          seederSocketId: data.seederSocketId,
-          uploadedBy: data.uploadedBy,
-          uploadedAt: data.uploadedAt,
+        ...this.state.files,
+        Object.assign({}, {
+          ...data,
           ownFile: this.state.mySocketId === data.seederSocketId &&
             data.uploadedBy === this.state.username ? true : false,
           fileProgressValue: 0,
           chunkFileSize: 0,
           fileBuffer: [],
-        },
+        }),
       ],
     });
   };
@@ -248,10 +261,12 @@ export default class App extends React.Component {
         {user.username}
       </li>
     ));
-    const sortedLinks = _.sortBy(this.state.files, file => file.fileName);
+    const sortedLinks = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
     const links = _.map(sortedLinks, (file, i) => (
       <li key={i}>
-        <p><b>File Name:</b> {file.fileName}</p>
+        <p><b>File Name:</b> {file.suggestedFileName}</p>
+        <p><b>File Description:</b> {file.fileDescription}</p>
+        <p><b>Original File Name:</b> {file.fileName}</p>
         <p><b>File Size:</b> {this.roundFileSize(file.fileSize)}</p>
         <p><b>Uploaded By:</b> {file.uploadedBy}</p>
         <p><b>Uploaded At:</b> {file.uploadedAt}</p>
@@ -312,8 +327,8 @@ export default class App extends React.Component {
               </div>
               <div className="form-group">
                 <label forHTML="fileDescription">Enter file description: </label>
-                <input className="form-control"
-                  type="text" id="fileDescription"
+                <textarea className="form-control"
+                  id="fileDescription" rows="5"
                   ref="fileDescription" placeholder="File Description"/>
               </div>
               <div className="form-group">
@@ -323,6 +338,11 @@ export default class App extends React.Component {
               </div>
               <input className="btn btn-default" type="submit" value="Send" />
             </form>
+            {
+              this.state.formErrorMessage ?
+                <p style={{ color: 'red' }}>{this.state.formErrorMessage}</p> :
+                null
+            }
           </div>
           <div className="col-md-6 col-sm-6 col-xs-6">
             <div className="pull-right">
@@ -335,7 +355,7 @@ export default class App extends React.Component {
                   null
               }
               <ul>
-                { userList }
+                {userList}
               </ul>
             </div>
           </div>
@@ -343,13 +363,16 @@ export default class App extends React.Component {
         <div className="row">
           <h3>Download Files from other Peers:</h3>
           <hr/>
-          {
-            this.state.files.length ?
-            <ul>{links}</ul> :
-            <h4>
-              There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
-            </h4>
-          }
+          <div className="col-md-6 col-sm-6 col-xs-6">
+            {
+              this.state.files.length ?
+              <ul>{links}</ul> :
+                <h4>
+                  There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
+              </h4>
+            }
+          </div>
+          <div className="col-md-6 col-sm-6 col-xs-6"></div>
         </div>
       </div>
     );
