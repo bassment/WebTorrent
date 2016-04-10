@@ -15,6 +15,7 @@ export default class App extends React.Component {
       files: [],
       mySocketId: '',
       username: '',
+      userEnterLeaveMessage: '',
     };
   }
 
@@ -23,6 +24,9 @@ export default class App extends React.Component {
     this.opts = { peerOpts: { trickle: false }, autoUpgrade: false };
     this.p2psocket = new P2P(this.socket, this.opts);
     this.p2psocket.on('get-socket-id', this.onGetSocketId);
+    this.p2psocket.on('user-list', this.onUserList);
+    this.p2psocket.on('new-user', this.onNewUser);
+    this.p2psocket.on('disconnect-user', this.onDisconnectUser);
     this.p2psocket.on('file-data', this.onFileData);
     this.p2psocket.on('give-file-back', this.onGiveFileBack);
     this.p2psocket.on('peer-file', this.onPeerFile);
@@ -71,6 +75,16 @@ export default class App extends React.Component {
         },
       ],
     });
+  };
+
+  onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
+    const fileObject =
+      this.state.files.find(file => file.fileId === requestedFileId);
+    if (fileObject.fileUrl) {
+      this.refs[requestedFileId].click();
+    } else {
+      this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
+    }
   };
 
   onGiveFileBack = (data) => {
@@ -163,15 +177,45 @@ export default class App extends React.Component {
         username: this.refs.username.value,
       });
 
+      this.p2psocket.emit('new-user',
+      {
+        username: this.refs.username.value,
+        socketId: this.state.mySocketId,
+      });
+
       this.refs.username.value = '';
     }
   };
 
-  onFileChange = (e) => {
+  onUserList = (userList) => {
     this.setState({
-      fileProgressValue: 0,
+      userList,
     });
   };
+
+  onNewUser = (data) => {
+    this.setState({
+      userList: data.userList,
+    });
+    if (data.newUser && data.self !== this.state.mySocketId) {
+      this.setState({
+        userEnterLeaveMessage: data.newUser + ' has entered WebTorrent!',
+      });
+    }
+  };
+
+  onDisconnectUser = (data) => {
+    this.setState({
+      userList: data.userList,
+    });
+    if (data.disconnectedUser) {
+      this.setState({
+        userEnterLeaveMessage: data.disconnectedUser + ' has left WebTorrent :(',
+      });
+    }
+  };
+
+  // Helper methods
 
   roundFileSize = (fileSize) => {
     let BYTEtoKB = Number(fileSize / 1024);
@@ -187,17 +231,12 @@ export default class App extends React.Component {
 
   getFileExtension = fileType => _.split(fileType, '/', 2).pop();
 
-  onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
-    const fileObject =
-      this.state.files.find(file => file.fileId === requestedFileId);
-    if (fileObject.fileUrl) {
-      this.refs[requestedFileId].click();
-    } else {
-      this.p2psocket.emit('ask-for-file', { seederSocketId, leecherSocketId, requestedFileId });
-    }
-  };
-
   render() {
+    const userList = _.map(this.state.userList, (user, i) => (
+      <li key={i}>
+        {user.username}
+      </li>
+    ));
     const sortedLinks = _.sortBy(this.state.files, file => file.fileName);
     const links = _.map(sortedLinks, (file, i) => (
       <li key={i}>
@@ -252,7 +291,17 @@ export default class App extends React.Component {
               <input className="btn btn-default" type="submit" value="Submit" />
             </form>
           </div>
-          <div className="col-md-6 col-sm-6 col-xs-6"></div>
+          <div className="col-md-6 col-sm-6 col-xs-6">
+            <h5>Who is online?</h5>
+            {
+              this.state.userEnterLeaveMessage ?
+                <h6 style={{ color: 'green' }}>{this.state.userEnterLeaveMessage}</h6> :
+                null
+            }
+            <ul>
+              { userList }
+            </ul>
+          </div>
         </div>
         <div className="row">
           <h3>Download files from other peers:</h3>
