@@ -15,7 +15,7 @@ export default class App extends React.Component {
       files: [],
       mySocketId: '',
       username: '',
-      userEnterLeaveMessage: '',
+      userEnterLeaveMessage: {},
     };
   }
 
@@ -199,7 +199,10 @@ export default class App extends React.Component {
     });
     if (data.newUser && data.self !== this.state.mySocketId) {
       this.setState({
-        userEnterLeaveMessage: data.newUser + ' has entered WebTorrent!',
+        userEnterLeaveMessage: {
+          message: data.newUser + ' has entered WebTorrent!',
+          messageColor: 'green',
+        },
       });
     }
   };
@@ -210,7 +213,10 @@ export default class App extends React.Component {
     });
     if (data.disconnectedUser) {
       this.setState({
-        userEnterLeaveMessage: data.disconnectedUser + ' has left WebTorrent :(',
+        userEnterLeaveMessage: {
+          message: data.disconnectedUser + ' has left WebTorrent :(',
+          messageColor: 'red',
+        },
       });
     }
   };
@@ -295,7 +301,9 @@ export default class App extends React.Component {
             <h5>Who is online?</h5>
             {
               this.state.userEnterLeaveMessage ?
-                <h6 style={{ color: 'green' }}>{this.state.userEnterLeaveMessage}</h6> :
+                <h6 style={{ color: this.state.userEnterLeaveMessage.messageColor }}>
+                  {this.state.userEnterLeaveMessage.message}
+                </h6> :
                 null
             }
             <ul>
