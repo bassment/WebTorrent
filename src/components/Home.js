@@ -32,6 +32,8 @@ export default class App extends React.Component {
     this.p2psocket.on('peer-file', this.onPeerFile);
   }
 
+  // File p2p transition methods
+
   onFileSubmit = (e) => {
     e.preventDefault();
     const fileInput = this.refs.fileInput;
@@ -165,6 +167,8 @@ export default class App extends React.Component {
     }
   };
 
+  // User actions
+
   onGetSocketId = (socketId) => {
     this.setState({
       mySocketId: socketId,
@@ -172,6 +176,7 @@ export default class App extends React.Component {
   };
 
   onUsername = (e) => {
+    e.preventDefault();
     if (this.refs.username.value !== '') {
       this.setState({
         username: this.refs.username.value,
@@ -266,7 +271,7 @@ export default class App extends React.Component {
               className="btn">
               Download
             </button> :
-            <p>This is your own file</p>
+            <h5 style={{ color: 'green' }}>This is your own file</h5>
         }
         <a style={{ display: 'none' }}
           download={file.fileName}
@@ -281,47 +286,68 @@ export default class App extends React.Component {
           this.state.username ?
             null :
             <div className="row">
-              <label>Enter your name: </label>
-              <input type="text" ref="username"/>
-              <button className="btn btn-default" onClick={this.onUsername}>Enter</button>
+              <div className="col-md-4 col-sm-4 col-xs-4">
+                <form onSubmit={this.onUsername}>
+                  <div className="form-group">
+                    <label forHTML="username">Enter your name: </label>
+                    <input className="form-control"
+                      type="text" id="username"
+                      ref="username" placeholder="Your Name" />
+                  </div>
+                  <input type="submit" className="btn btn-default" value="Enter" />
+                </form>
+              </div>
+              <div className="col-md-8 col-sm-8 col-xs-8"></div>
             </div>
         }
         <div className="row">
           <h1 className="title">WebTorrent</h1>
           <div className="col-md-6 col-sm-6 col-xs-6">
-            <form action="#" onSubmit={this.onFileSubmit}>
-              <label>Select file to send</label>
-              <input type="file" name="filename"
-                ref="fileInput" size="40" onChange={this.onFileChange} />
-              <br/>
-              <input className="btn btn-default" type="submit" value="Submit" />
+            <form onSubmit={this.onFileSubmit}>
+              <div className="form-group">
+                <label forHTML="suggestedFileName">Enter file name: </label>
+                <input className="form-control"
+                  type="text" id="suggestedFileName"
+                  ref="suggestedFileName" placeholder="Suggested Name" />
+              </div>
+              <div className="form-group">
+                <label forHTML="fileDescription">Enter file description: </label>
+                <input className="form-control"
+                  type="text" id="fileDescription"
+                  ref="fileDescription" placeholder="File Description"/>
+              </div>
+              <div className="form-group">
+                <label forHTML="fileName">Select file to send: </label>
+                <input type="file" id="fileName"
+                  ref="fileInput" size="40" onChange={this.onFileChange} />
+              </div>
+              <input className="btn btn-default" type="submit" value="Send" />
             </form>
           </div>
           <div className="col-md-6 col-sm-6 col-xs-6">
-            <h5>Who is online?</h5>
-            {
-              this.state.userEnterLeaveMessage ?
-                <h6 style={{ color: this.state.userEnterLeaveMessage.messageColor }}>
-                  {this.state.userEnterLeaveMessage.message}
-                </h6> :
-                null
-            }
-            <ul>
-              { userList }
-            </ul>
+            <div className="pull-right">
+              <h5>Who is online?</h5>
+              {
+                this.state.userEnterLeaveMessage ?
+                  <h6 style={{ color: this.state.userEnterLeaveMessage.messageColor }}>
+                    {this.state.userEnterLeaveMessage.message}
+                  </h6> :
+                  null
+              }
+              <ul>
+                { userList }
+              </ul>
+            </div>
           </div>
         </div>
         <div className="row">
-          <h3>Download files from other peers:</h3>
+          <h3>Download Files from other Peers:</h3>
           <hr/>
           {
             this.state.files.length ?
             <ul>{links}</ul> :
             <h4>
-              Nobody
-              <span className="glyphicon glyphicon-floppy-save"></span>
-              sent you a file
-              <span className="glyphicon glyphicon-folder-open"></span>
+              There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
             </h4>
           }
         </div>
