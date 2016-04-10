@@ -71,7 +71,7 @@ export default class App extends React.Component {
       fileDescriptionInput.value = '';
     } else {
       this.setState({
-        formErrorMessage: 'All fields are requrired! ;)',
+        formErrorMessage: 'All fields are requrired!',
       });
     }
   };
@@ -85,6 +85,8 @@ export default class App extends React.Component {
           ownFile: this.state.mySocketId === data.seederSocketId &&
             data.uploadedBy === this.state.username ? true : false,
           fileProgressValue: 0,
+          currentlyEditingName: false,
+          currentlyEditingDescription: false,
           chunkFileSize: 0,
           fileBuffer: [],
         }),
@@ -239,6 +241,45 @@ export default class App extends React.Component {
     }
   };
 
+  onEditFileName = (socketId, fileId) => {
+    // ReactDOM.findDOMNode(this.refs.newFileName).focus();
+    const fileObject = this.state.files.find(file => file.fileId === fileId);
+    this.setState({
+      files: [
+        ...this.state.files.filter(file => file.fileId !== fileId),
+        Object.assign(fileObject, {
+          currentlyEditingName: true,
+        }),
+      ],
+    });
+  };
+
+  onEditFileDescription = (socketId, fileId) => {
+    // ReactDOM.findDOMNode(this.refs.newFileDescription).focus();
+    const fileObject = this.state.files.find(file => file.fileId === fileId);
+    this.setState({
+      files: [
+        ...this.state.files.filter(file => file.fileId !== fileId),
+        Object.assign(fileObject, {
+          currentlyEditingDescription: true,
+        }),
+      ],
+    });
+  };
+
+  onEditFileSave = (socketId, fileId) => {
+    const fileObject = this.state.files.find(file => file.fileId === fileId);
+    this.setState({
+      files: [
+        ...this.state.files.filter(file => file.fileId !== fileId),
+        Object.assign(fileObject, {
+          currentlyEditingName: false,
+          currentlyEditingDescription: false,
+        }),
+      ],
+    });
+  };
+
   // Helper methods
 
   roundFileSize = (fileSize) => {
@@ -264,32 +305,78 @@ export default class App extends React.Component {
     const sortedLinks = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
     const links = _.map(sortedLinks, (file, i) => (
       <li key={i}>
-        <p><b>File Name:</b> {file.suggestedFileName}</p>
-        <p><b>File Description:</b> {file.fileDescription}</p>
-        <p><b>Original File Name:</b> {file.fileName}</p>
-        <p><b>File Size:</b> {this.roundFileSize(file.fileSize)}</p>
-        <p><b>Uploaded By:</b> {file.uploadedBy}</p>
-        <p><b>Uploaded At:</b> {file.uploadedAt}</p>
-        <p><b>File Type:</b> {this.getFileType(file.fileType)}</p>
-        <p><b>File Extension:</b> {this.getFileExtension(file.fileType)}</p>
+        {
+          !file.currentlyEditingName ?
+            <p><b>File Name:</b> {file.suggestedFileName}</p> :
+              <p>
+                <b>New File Name: </b>
+                <input type="text" autoFocus
+                  ref="newFileName" defaultValue={file.suggestedFileName}/>
+              </p>
+        }
+        {
+          !file.currentlyEditingDescription ?
+            <p><b>File Description:</b> {file.fileDescription}</p> :
+              <p>
+                <b>New Description: </b>
+                <input type="text" autoFocus
+                  ref="newFileDescription" defaultValue={file.fileDescription}/>
+              </p>
+        }
+        <p><b>Original File Name: </b>{file.fileName}</p>
+        <p><b>File Size: </b>{this.roundFileSize(file.fileSize)}</p>
+        <p><b>Uploaded By: </b>{file.uploadedBy}</p>
+        <p><b>Uploaded At: </b>{file.uploadedAt}</p>
+        <p><b>File Type: </b>{this.getFileType(file.fileType)}</p>
+        <p><b>File Extension: </b>{this.getFileExtension(file.fileType)}</p>
         <progress value={file.fileProgressValue} max={file.fileSize} />
         <br/>
         {
           !file.ownFile ?
             <button
+              className="btn"
               onClick={this.onDownload.bind(
                 this,
                 file.seederSocketId,
                 this.state.mySocketId,
                 file.fileId
-              )}
-              className="btn">
+            )}>
               Download
             </button> :
-            <h5 style={{ color: 'green' }}>This is your own file</h5>
+              !file.currentlyEditingName && !file.currentlyEditingDescription ?
+                <div>
+                  <h5 style={{ color: 'green' }}>This is your own file</h5>
+                  <button
+                    onClick={this.onEditFileName.bind(
+                      this,
+                      this.state.mySocketId,
+                      file.fileId
+                  )}
+                    className="btn action-button">
+                    Edit Name
+                  </button>
+                  <button
+                    onClick={this.onEditFileDescription.bind(
+                      this,
+                      this.state.mySocketId,
+                      file.fileId
+                  )}
+                    className="btn action-button">
+                    Edit Description
+                  </button>
+                </div> :
+                  <button
+                    onClick={this.onEditFileSave.bind(
+                      this,
+                      this.state.mySocketId,
+                      file.fileId
+                  )}
+                    className="btn action-button">
+                    Save
+                  </button>
         }
         <a style={{ display: 'none' }}
-          download={file.fileName}
+          download={file.suggestedFileName + '.' + this.getFileExtension(file.fileType)}
           ref={file.fileId}
           href={file.fileUrl}></a>
         <hr />
@@ -340,7 +427,9 @@ export default class App extends React.Component {
             </form>
             {
               this.state.formErrorMessage ?
-                <p style={{ color: 'red' }}>{this.state.formErrorMessage}</p> :
+                <div className="alert alert-danger">
+                  <h5 style={{ color: 'red' }}>{this.state.formErrorMessage}</h5>
+                </div> :
                 null
             }
           </div>
