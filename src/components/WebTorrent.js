@@ -1,11 +1,11 @@
 import P2P from 'socket.io-p2p';
 import io from 'socket.io-client';
+import _ from 'lodash';
+import uuid from 'uuid';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
-
-import _ from 'lodash';
-import uuid from 'uuid';
+import FileItem from './FileItem';
 
 export default class App extends React.Component {
   constructor(props) {
@@ -119,22 +119,6 @@ export default class App extends React.Component {
         }),
       ],
     });
-  };
-
-  onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
-    const leecherUsername = this.state.username;
-    const fileObject =
-      this.state.files.find(file => file.fileId === requestedFileId);
-    if (fileObject.fileUrl) {
-      this.refs[requestedFileId].click();
-    } else {
-      this.p2psocket.emit('ask-for-file', {
-        seederSocketId,
-        leecherSocketId,
-        leecherUsername,
-        requestedFileId,
-      });
-    }
   };
 
   onGiveFileBack = (data) => {
@@ -276,9 +260,25 @@ export default class App extends React.Component {
     }
   };
 
+  onDownload = (seederSocketId, leecherSocketId, requestedFileId) => {
+    const leecherUsername = this.state.username;
+    const fileObject =
+      this.state.files.find(file => file.fileId === requestedFileId);
+    if (fileObject.fileUrl) {
+      this.refs[requestedFileId].click();
+    } else {
+      this.p2psocket.emit('ask-for-file', {
+        seederSocketId,
+        leecherSocketId,
+        leecherUsername,
+        requestedFileId,
+      });
+    }
+  };
+
   // On file edit actions
 
-  onEditFileName = (socketId, fileId) => {
+  onEditFileName = (fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
     this.setState({
       files: [
@@ -290,7 +290,7 @@ export default class App extends React.Component {
     });
   };
 
-  onEditFileDescription = (socketId, fileId) => {
+  onEditFileDescription = (fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
     this.setState({
       files: [
@@ -302,12 +302,9 @@ export default class App extends React.Component {
     });
   };
 
-  onEditFileSave = (socketId, fileId) => {
+  onEditFileSave = (newFileName, newFileDescription, fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
     if (fileObject.currentlyEditingName) {
-      const newFileName = this.refs.newFileName.value ?
-        this.refs.newFileName.value :
-          fileObject.suggestedFileName;
 
       this.p2psocket.emit('new-file-name', { newFileName, fileId });
 
@@ -322,9 +319,6 @@ export default class App extends React.Component {
         ],
       });
     } else if (fileObject.currentlyEditingDescription) {
-      const newFileDescription = this.refs.newFileDescription.value ?
-        this.refs.newFileDescription.value :
-          fileObject.fileDescription;
 
       this.p2psocket.emit('new-file-description', { newFileDescription, fileId });
 
@@ -340,124 +334,13 @@ export default class App extends React.Component {
     }
   };
 
-  // Helper methods
-
-  roundFileSize = (fileSize) => {
-    let BYTEtoKB = Number(fileSize / 1024);
-    let roundedSize = _.round(BYTEtoKB, 1);
-    let withKB = roundedSize + ' KBs';
-    return withKB;
-  };
-
-  getFileType = fileType => {
-    let fileTypeArray =  _.split(fileType, '/', 2);
-    return _.head(fileTypeArray);
-  };
-
-  getFileExtension = fileType => _.split(fileType, '/', 2).pop();
-
   render() {
     const userList = _.map(this.state.userList, (user, i) => (
       <li key={i}>
         {user.username}
       </li>
     ));
-    const sortedLinks = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
-    const links = _.map(sortedLinks, (file, i) => (
-      <li key={i}>
-        {file.ownFile ? <h5 style={{ color: 'green' }}>This is your own file</h5> : null }
-        {
-          !file.currentlyEditingName ?
-            <p><b>File Name:</b> {file.suggestedFileName}</p> :
-              <p>
-                <b>New File Name: </b>
-                <input type="text" autoFocus
-                  ref="newFileName" defaultValue={file.suggestedFileName}/>
-              </p>
-        }
-        {
-          !file.currentlyEditingDescription ?
-            <p><b>File Description:</b> {file.fileDescription}</p> :
-              <p>
-                <b>New Description: </b>
-                <input type="text" autoFocus
-                  ref="newFileDescription" defaultValue={file.fileDescription}/>
-              </p>
-        }
-        <p><b>Original File Name: </b>{file.fileName}</p>
-        <p><b>File Size: </b>{this.roundFileSize(file.fileSize)}</p>
-        <p><b>Uploaded By: </b>{file.uploadedBy}</p>
-        <p><b>Uploaded At: </b>{file.uploadedAt}</p>
-        <p><b>File Type: </b>{this.getFileType(file.fileType)}</p>
-        <p><b>File Extension: </b>{this.getFileExtension(file.fileType)}</p>
-        {
-          !file.ownFile ?
-            <div>
-              <progress value={file.fileProgressValue} max={file.fileSize} />
-            </div> :
-              null
-        }
-        <br/>
-        {
-          !file.ownFile ?
-            <button
-              className="btn"
-              onClick={this.onDownload.bind(
-                this,
-                file.seederSocketId,
-                this.state.mySocketId,
-                file.fileId
-            )}>
-              Download
-            </button> :
-              !file.currentlyEditingName && !file.currentlyEditingDescription ?
-                <div>
-                  {
-                    file.fileLeechers ?
-                      file.fileLeechers.map((leecher, i) => (
-                        <h5 key={i}>
-                          <span style={{ color: 'purple' }}>{leecher} </span>
-                          downloading/downloaded your file
-                        </h5>
-                      )) :
-                      null
-                  }
-                  <button
-                    onClick={this.onEditFileName.bind(
-                      this,
-                      this.state.mySocketId,
-                      file.fileId
-                  )}
-                    className="btn action-button">
-                    Edit Name
-                  </button>
-                  <button
-                    onClick={this.onEditFileDescription.bind(
-                      this,
-                      this.state.mySocketId,
-                      file.fileId
-                  )}
-                    className="btn action-button">
-                    Edit Description
-                  </button>
-                </div> :
-                  <button
-                    onClick={this.onEditFileSave.bind(
-                      this,
-                      this.state.mySocketId,
-                      file.fileId
-                  )}
-                    className="btn action-button">
-                    Save
-                  </button>
-        }
-        <a style={{ display: 'none' }}
-          download={file.suggestedFileName + '.' + this.getFileExtension(file.fileType)}
-          ref={file.fileId}
-          href={file.fileUrl}></a>
-        <hr />
-      </li>
-    ));
+    const sortedFiles = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
     return (
       this.state.username ?
         <div className="container">
@@ -514,10 +397,23 @@ export default class App extends React.Component {
             <div className="col-md-6 col-sm-6 col-xs-6">
               {
                 this.state.files.length ?
-                <ul>{links}</ul> :
-                  <h4>
-                    There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
-                  </h4>
+                  <ul>
+                    {
+                      _.map(sortedFiles, (file, i) => (
+                        <FileItem
+                          file={file}
+                          key={i}
+                          mySocketId={this.state.mySocketId}
+                          onDownload={this.onDownload}
+                          onEditFileName={this.onEditFileName}
+                          onEditFileDescription={this.onEditFileDescription}
+                          onEditFileSave={this.onEditFileSave} />
+                      ))
+                    }
+                  </ul> :
+                    <h4>
+                      There are no files here yet <span className="glyphicon glyphicon-floppy-save" />
+                    </h4>
               }
             </div>
             <div className="col-md-6 col-sm-6 col-xs-6"></div>

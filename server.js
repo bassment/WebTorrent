@@ -71,6 +71,7 @@ io.on('connection', function (socket) {
         leecherSocketId: data.leecherSocketId,
         leecherUsername: data.leecherUsername,
         requestedFileId: data.requestedFileId,
+        aTag: data.aTag,
       }
     );
   });
