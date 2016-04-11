@@ -23,6 +23,10 @@ export default class App extends React.Component {
   componentWillMount() {
     this.socket = io();
     this.opts = { peerOpts: { trickle: false }, autoUpgrade: false };
+
+    // When component mounts or updates
+    // We listen to p2psocket form server
+    // To provide Real Time App execution
     this.p2psocket = new P2P(this.socket, this.opts);
     this.p2psocket.on('get-socket-id', this.onGetSocketId);
     this.p2psocket.on('user-list', this.onUserList);
@@ -35,7 +39,7 @@ export default class App extends React.Component {
     this.p2psocket.on('peer-file', this.onPeerFile);
   }
 
-  // File p2p transition methods
+  // Sharing New fileName or New fileDescription between all connected peers
 
   onNewFileName = (data) => {
     const fileObject = this.state.files.find(file => file.fileId === data.fileId);
@@ -60,6 +64,8 @@ export default class App extends React.Component {
       ],
     });
   };
+
+  // File p2p transition methods
 
   onFileSubmit = (e) => {
     e.preventDefault();
@@ -103,6 +109,8 @@ export default class App extends React.Component {
   };
 
   onFileData = (data) => {
+
+    // Here we receiving data form peer and setting it to component state
     this.setState({
       files: [
         ...this.state.files,
@@ -123,9 +131,12 @@ export default class App extends React.Component {
 
   onGiveFileBack = (data) => {
     let requestedFileObject = this.state.files.find(file => file.fileId === data.requestedFileId);
+
+    // File needs to be a Blob to be passed into reader
     const file = new window.Blob([requestedFileObject.file]);
     const fileSize = requestedFileObject.fileSize;
 
+    // Seeder sends a file with chunks, not all file at once
     var chunkSize = 32384;
     var sliceFile = offset => {
       var reader = new window.FileReader();
@@ -135,6 +146,9 @@ export default class App extends React.Component {
           fileLeecher: data.leecherSocketId,
           requestedFileId: data.requestedFileId,
         });
+
+        // So we called setTimeout here and recursively execute sliceFile function
+        // If file data is not already ended
         if (file.size > offset + evnt.target.result.byteLength) {
           window.setTimeout(sliceFile, 0, offset + chunkSize);
         }
@@ -145,6 +159,8 @@ export default class App extends React.Component {
       };
 
       var slice = file.slice(offset, offset + chunkSize);
+
+      // Here we read our Blob as ArrayBuffer
       reader.readAsArrayBuffer(slice);
     };
 
@@ -164,6 +180,8 @@ export default class App extends React.Component {
   };
 
   onPeerFile = (data) => {
+    // Here we write our received chunks from our previous function
+    // And set the file data to React state
     const fileObject =
       this.state.files.find(file => file.fileId === data.requestedFileId);
     this.setState({
@@ -180,6 +198,7 @@ export default class App extends React.Component {
       ],
     });
 
+    // When we receive all the file we finnaly can output it here
     if (fileObject.chunkFileSize === fileObject.fileSize) {
       const blob = new window.Blob(fileObject.fileBuffer);
       const urlCreator = window.URL || window.webkitURL;
@@ -197,11 +216,13 @@ export default class App extends React.Component {
         ],
       });
 
+      // Yes, we are clicking on a hidden <a> tag
+      // which was created with new URL parametters above(fileURL)
       this.refs[data.requestedFileId].click();
     }
   };
 
-  // User actions
+  // User Actions
 
   onGetSocketId = (socketId) => {
     this.setState({
@@ -264,6 +285,10 @@ export default class App extends React.Component {
     const leecherUsername = this.state.username;
     const fileObject =
       this.state.files.find(file => file.fileId === requestedFileId);
+
+    // If we already dowloaded a file previously
+    // we can click on the already existing file URL
+    // OR ELSE we pass the data to p2psocket on a server
     if (fileObject.fileUrl) {
       this.refs[requestedFileId].click();
     } else {
@@ -277,6 +302,7 @@ export default class App extends React.Component {
   };
 
   // On file edit actions
+  // Are simple crud operations on a component
 
   onEditFileName = (fileId) => {
     const fileObject = this.state.files.find(file => file.fileId === fileId);
@@ -334,13 +360,23 @@ export default class App extends React.Component {
     }
   };
 
+  // Helper Methods
+
+  // TODO: Need to create separate helper file to share this function between components
+  getFileExtension = fileType => _.split(fileType, '/', 2).pop();
+
   render() {
+    // TODO: REFACTOR: Need to create New React Component from this
     const userList = _.map(this.state.userList, (user, i) => (
       <li key={i}>
         {user.username}
       </li>
     ));
+
+    // TODO: REFACTOR: Need to create New React Component from this
     const sortedFiles = _.orderBy(this.state.files, ['uploadedAt'], ['desc']);
+
+    // TODO: REFACTOR: Need to create New React Components for better readability of render function
     return (
       this.state.username ?
         <div className="container">
@@ -400,14 +436,22 @@ export default class App extends React.Component {
                   <ul>
                     {
                       _.map(sortedFiles, (file, i) => (
-                        <FileItem
-                          file={file}
-                          key={i}
-                          mySocketId={this.state.mySocketId}
-                          onDownload={this.onDownload}
-                          onEditFileName={this.onEditFileName}
-                          onEditFileDescription={this.onEditFileDescription}
-                          onEditFileSave={this.onEditFileSave} />
+                        <div key={i} className="file">
+                          <FileItem
+                            file={file}
+                            mySocketId={this.state.mySocketId}
+                            onDownload={this.onDownload}
+                            onEditFileName={this.onEditFileName}
+                            onEditFileDescription={this.onEditFileDescription}
+                            onEditFileSave={this.onEditFileSave} />
+                          <a style={{ display: 'none' }}
+                            download={
+                              file.suggestedFileName + '.' + this.getFileExtension(file.fileType)
+                            }
+                            ref={file.fileId}
+                            href={file.fileUrl} />
+                          <hr />
+                        </div>
                       ))
                     }
                   </ul> :

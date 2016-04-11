@@ -7,6 +7,7 @@ var server = require('http').Server(app);
 var p2pserver = require('socket.io-p2p-server').Server;
 var io = require('socket.io')(server);
 
+// Neeed this to transpile scss files to css files in public folder
 app.use(
   sassMiddleware({
     src: __dirname + '/sass',
@@ -26,7 +27,10 @@ app.get('/', function (req, res) {
 server.listen(port);
 console.log('Listening on port', port);
 
+// We are saving Usernames and their id's on a server
 var userList = [];
+
+// Communication with our main WebTorrent.js React Component through this Socket connection
 io.on('connection', function (socket) {
   socket.emit('get-socket-id', socket.id);
 
@@ -71,7 +75,6 @@ io.on('connection', function (socket) {
         leecherSocketId: data.leecherSocketId,
         leecherUsername: data.leecherUsername,
         requestedFileId: data.requestedFileId,
-        aTag: data.aTag,
       }
     );
   });

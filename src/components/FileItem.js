@@ -134,11 +134,6 @@ export default class FileItem extends React.Component {
                     Save
                   </button>
         }
-        <a style={{ display: 'none' }}
-          download={file.suggestedFileName + '.' + this.getFileExtension(file.fileType)}
-          ref={file.fileId}
-          href={file.fileUrl}></a>
-        <hr />
       </li>
     );
   }
