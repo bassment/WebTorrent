@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "main": "server.js",
   "scripts": {
-    "build": "browserify ./src/app.js -t [ babelify --presets [ es2015 react stage-0 ] ] --outfile public/all.js",
+    "postinstall": "browserify ./src/app.js -t [ babelify --presets [ es2015 react stage-0 ] ] --outfile public/all.js",
     "watch": "watch 'npm run build:js' ./src",
     "start": "node server.js"
   },
